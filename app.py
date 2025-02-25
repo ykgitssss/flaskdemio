@@ -204,7 +204,7 @@ def delete_chat_session(session_id):
 def send_message():
     user_id = request.user_id
     data = request.json
-    
+    print(f"Received message request: {data}")  # Add debugging logs
     if not data or 'session_id' not in data or 'message' not in data:
         return jsonify({'error': 'Missing required fields'}), 400
         
@@ -217,6 +217,7 @@ def send_message():
         chat_history.insert(0, SYSTEM_PROMPT)
     
     try:
+        print(f"Processing message for session {session_id}")
         # Add user message to chat history
         chat_history.append({"role": "user", "content": user_message})
         
@@ -263,6 +264,7 @@ def send_message():
         }), 200
         
     except Exception as e:
+        print(f"Error processing message: {str(e)}")  # Log exception
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
