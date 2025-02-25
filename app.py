@@ -22,7 +22,7 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
 
 # Create clients
 groq_client = Groq(api_key=GROQ_API_KEY)
-supabase_client = supabase.create_client(SUPABASE_URL, SUPABASE_KEY)
+supabase_client = supabase.create_client("https://iywsdqzgvmxxohmawjmo.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5d3NkcXpndm14eG9obWF3am1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAyODU3NzksImV4cCI6MjA1NTg2MTc3OX0.di8Qy5oeN-u3L6keO60pGv8tCO_l83UAHFUex-ynoVg")
 
 # System prompt for the AI
 SYSTEM_PROMPT = {
