@@ -35,36 +35,18 @@ SYSTEM_PROMPT = {
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        
-        # Get token from Authorization header
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            if auth_header.startswith('Bearer '):
-                token = auth_header.split(' ')[1]
-        
+        token = request.headers.get("Authorization")
         if not token:
-            return jsonify({'message': 'Authentication token is missing!'}), 401
-        
+            return jsonify({"error": "Token is missing"}), 401
+
         try:
-            # Just extract the user ID without full verification for now
-            # This is a temporary fix to get the app working
-            payload = jwt.decode(token, options={"verify_signature": False})
-            user_id = payload.get('sub')
-            
-            if not user_id:
-                user_id = payload.get('user_id')  # Try alternative field name
-                
-            if not user_id:
-                return jsonify({'message': 'Invalid authentication token!'}), 401
-            
-            # Add user_id to request context
-            request.user_id = user_id
-            
-        except Exception as e:
-            print(f"Token validation error: {str(e)}")
-            return jsonify({'message': f'Token validation error: {str(e)}'}), 401
-            
+            decoded_token = jwt.decode(token, SUPABASE_KEY, algorithms=["HS256"])
+            request.user = decoded_token  # Store user data
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+
         return f(*args, **kwargs)
     
     return decorated
