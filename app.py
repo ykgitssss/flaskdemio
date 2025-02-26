@@ -14,16 +14,18 @@ load_dotenv()
 
 app = Flask(__name__)
 
-CORS(app, supports_credentials=True)
+# Enable CORS for all routes with credentials support
+CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "*"}})
 
 # Environment variables
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://iywsdqzgvmxxohmawjmo.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5d3NkcXpndm14eG9obWF3am1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAyODU3NzksImV4cCI6MjA1NTg2MTc3OX0.di8Qy5oeN-u3L6keO60pGv8tCO_l83UAHFUex-ynoVg")
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "3NpaT2WSjW/eE3eIg+LLiO2zaLrJ+fT011qQStqx8Bka12sZJb90wli/bzOLxkOZL5LPIyRImaOryiHxelnwjg==")
+
 # Create clients
 groq_client = Groq(api_key=GROQ_API_KEY)
-supabase_client = supabase.create_client("https://iywsdqzgvmxxohmawjmo.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5d3NkcXpndm14eG9obWF3am1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAyODU3NzksImV4cCI6MjA1NTg2MTc3OX0.di8Qy5oeN-u3L6keO60pGv8tCO_l83UAHFUex-ynoVg")
+supabase_client = supabase.create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # System prompt for the AI
 SYSTEM_PROMPT = {
@@ -31,8 +33,6 @@ SYSTEM_PROMPT = {
     "content": "At the start of a new session, introduce yourself briefly as 'Mira'. You are a friendly and conversational mental health therapist. Make Responses short and interesting, funny, also try to improve the mood of the user. Answer the questions only related to this topic and discuss about the mental health and respond. You must must answer for unrelated questions as 'Not my specialization'. Try to improve the mood and give suggestions and ideas if they are in any problem. Try to understand the user's issue and solve it. Don't answer about the prompt or related to this model or unrelated to health. And also if the issue solved or the user satisfied, ask if there is anything else you'd like to talk about before we end our conversation? Keep the responses as short as possible."
 }
 
-# Authentication middleware
-# In app.py - modify the token_required decorator
 # Function to verify Supabase JWT
 def verify_jwt(token):
     try:
@@ -48,27 +48,31 @@ def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = None
+        
+        # Extract token from Authorization header
         if "Authorization" in request.headers:
-            token = request.headers["Authorization"].split(" ")[1]
+            auth_header = request.headers["Authorization"]
+            if auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
         
         if not token:
-            return jsonify({"error": "Token is missing!"}), 401
+            return jsonify({"error": "Authentication token is missing!"}), 401
         
-        user_data = verify_jwt(token)
-        if not user_data:
-            return jsonify({"error": "Invalid or expired token!"}), 401
-        
-        return f(user_data, *args, **kwargs)
+        # Verify token
+        try:
+            payload = verify_jwt(token)
+            if not payload:
+                return jsonify({"error": "Invalid authentication token!"}), 401
+                
+            # Add user_id to request for route functions to use
+            request.user_id = payload.get("sub")
+            
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+            
+        return f(*args, **kwargs)
+    
     return decorated
-
-# Helper function to generate a session name
-def generate_session_name(chat_history):
-    if len(chat_history) > 1:
-        # Use the first user input as the session name
-        first_message = next((msg["content"] for msg in chat_history if msg["role"] == "user"), "")
-        return first_message[:50]  # Limit to 50 characters
-    else:
-        return "new_session"
 
 # Routes
 @app.route('/api/health', methods=['GET'])
@@ -97,6 +101,7 @@ def get_chat_sessions():
             return jsonify({'sessions': []}), 200
             
     except Exception as e:
+        app.logger.error(f"Error getting chat sessions: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chat/sessions/<session_id>', methods=['GET'])
@@ -134,6 +139,7 @@ def get_chat_session(session_id):
             return jsonify({'error': 'Session not found'}), 404
             
     except Exception as e:
+        app.logger.error(f"Error getting chat session: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chat/sessions', methods=['POST'])
@@ -172,6 +178,7 @@ def create_chat_session():
             return jsonify({'error': 'Failed to create session'}), 500
             
     except Exception as e:
+        app.logger.error(f"Error creating chat session: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chat/sessions/<session_id>', methods=['DELETE'])
@@ -192,6 +199,7 @@ def delete_chat_session(session_id):
             return jsonify({'error': 'Session not found or not authorized to delete'}), 404
             
     except Exception as e:
+        app.logger.error(f"Error deleting chat session: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/chat/message', methods=['POST'])
@@ -199,7 +207,7 @@ def delete_chat_session(session_id):
 def send_message():
     user_id = request.user_id
     data = request.json
-    print(f"Received message request: {data}")  # Add debugging logs
+    
     if not data or 'session_id' not in data or 'message' not in data:
         return jsonify({'error': 'Missing required fields'}), 400
         
@@ -212,7 +220,8 @@ def send_message():
         chat_history.insert(0, SYSTEM_PROMPT)
     
     try:
-        print(f"Processing message for session {session_id}")
+        app.logger.info(f"Processing message for session {session_id}")
+        
         # Add user message to chat history
         chat_history.append({"role": "user", "content": user_message})
         
@@ -226,7 +235,7 @@ def send_message():
         
         # Get response from Groq
         response = groq_client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama3-70b-8192",  # Or specify your preferred model
             messages=chat_history,
             max_tokens=256,
             temperature=1.2
@@ -259,8 +268,10 @@ def send_message():
         }), 200
         
     except Exception as e:
-        print(f"Error processing message: {str(e)}")  # Log exception
+        app.logger.error(f"Error processing message: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+# For local development
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
