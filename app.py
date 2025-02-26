@@ -17,10 +17,10 @@ app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
 # Environment variables
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+GROQ_API_KEYSUPABASE_JWT_SECRET
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://iywsdqzgvmxxohmawjmo.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5d3NkcXpndm14eG9obWF3am1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAyODU3NzksImV4cCI6MjA1NTg2MTc3OX0.di8Qy5oeN-u3L6keO60pGv8tCO_l83UAHFUex-ynoVg")
-
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "3NpaT2WSjW/eE3eIg+LLiO2zaLrJ+fT011qQStqx8Bka12sZJb90wli/bzOLxkOZL5LPIyRImaOryiHxelnwjg==")
 # Create clients
 groq_client = Groq(api_key=GROQ_API_KEY)
 supabase_client = supabase.create_client("https://iywsdqzgvmxxohmawjmo.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5d3NkcXpndm14eG9obWF3am1vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDAyODU3NzksImV4cCI6MjA1NTg2MTc3OX0.di8Qy5oeN-u3L6keO60pGv8tCO_l83UAHFUex-ynoVg")
