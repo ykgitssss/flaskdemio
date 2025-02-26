@@ -10,7 +10,7 @@ import requests
 import datetime
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # Environment variables
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
@@ -42,30 +42,56 @@ def token_required(f):
             return jsonify({'error': 'Token is missing!'}), 401
 
         try:
-            # Verify the JWT token using Supabase's JWT secret
-            # Note: In production, you should fetch public keys from Supabase
+            # Verify the JWT token
+            # Note: We're disabling signature verification since we don't have proper key setup
+            # In production, you should validate signatures properly
             payload = jwt.decode(
                 token, 
                 SUPABASE_JWT_SECRET, 
                 algorithms=["HS256"],
-                options={"verify_signature": False}  # Since we don't have the proper key setup
+                options={"verify_signature": False}
             )
             
             # Extract user_id from token
             user_id = payload.get('sub')
             if not user_id:
-                return jsonify({'error': 'Invalid token!'}), 401
+                return jsonify({'error': 'Invalid token! No user ID found.'}), 401
                 
+            # Store user_id in request for use in route handlers
             request.user_id = user_id
             
         except jwt.ExpiredSignatureError:
             return jsonify({'error': 'Token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'error': 'Invalid token!'}), 401
+        except jwt.InvalidTokenError as e:
+            return jsonify({'error': f'Invalid token: {str(e)}'}), 401
+        except Exception as e:
+            return jsonify({'error': f'Authentication error: {str(e)}'}), 500
             
         return f(*args, **kwargs)
     return decorated
 
+# Debug endpoint to check token
+@app.route('/api/check-token', methods=['GET'])
+def check_token():
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'No token provided'}), 400
+    
+    token = auth_header.split(' ')[1]
+    
+    try:
+        # Decode token without verification for debugging
+        payload = jwt.decode(
+            token, 
+            options={"verify_signature": False}
+        )
+        return jsonify({
+            'message': 'Token decoded successfully',
+            'payload': payload,
+            'user_id': payload.get('sub')
+        })
+    except Exception as e:
+        return jsonify({'error': f'Token error: {str(e)}'}), 400
 # Supabase helpers
 def supabase_request(method, path, headers=None, data=None, params=None):
     url = f"{SUPABASE_URL}{path}"
