@@ -33,23 +33,32 @@ SYSTEM_PROMPT = {
 
 # Authentication middleware
 # In app.py - modify the token_required decorator
+# Function to verify Supabase JWT
+def verify_jwt(token):
+    try:
+        decoded_token = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"])
+        return decoded_token
+    except jwt.ExpiredSignatureError:
+        return None
+    except jwt.InvalidTokenError:
+        return None
+
+# Authentication middleware
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get("Authorization")
+        token = None
+        if "Authorization" in request.headers:
+            token = request.headers["Authorization"].split(" ")[1]
+        
         if not token:
-            return jsonify({"error": "Token is missing"}), 401
-
-        try:
-            decoded_token = jwt.decode(token, SUPABASE_KEY, algorithms=["HS256"])
-            request.user = decoded_token  # Store user data
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token has expired"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
-
-        return f(*args, **kwargs)
-    
+            return jsonify({"error": "Token is missing!"}), 401
+        
+        user_data = verify_jwt(token)
+        if not user_data:
+            return jsonify({"error": "Invalid or expired token!"}), 401
+        
+        return f(user_data, *args, **kwargs)
     return decorated
 
 # Helper function to generate a session name
