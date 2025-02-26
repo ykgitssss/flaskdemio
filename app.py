@@ -31,6 +31,7 @@ SYSTEM_PROMPT = {
 }
 
 # Authentication middleware
+# In app.py - modify the token_required decorator
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -46,21 +47,23 @@ def token_required(f):
             return jsonify({'message': 'Authentication token is missing!'}), 401
         
         try:
-            # Verify token - this is a simplified approach
-            # In production, you'd want to verify this using Supabase's JWT verification
+            # Just extract the user ID without full verification for now
+            # This is a temporary fix to get the app working
             payload = jwt.decode(token, options={"verify_signature": False})
             user_id = payload.get('sub')
             
+            if not user_id:
+                user_id = payload.get('user_id')  # Try alternative field name
+                
             if not user_id:
                 return jsonify({'message': 'Invalid authentication token!'}), 401
             
             # Add user_id to request context
             request.user_id = user_id
             
-        except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Authentication token has expired!'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'message': 'Invalid authentication token!'}), 401
+        except Exception as e:
+            print(f"Token validation error: {str(e)}")
+            return jsonify({'message': f'Token validation error: {str(e)}'}), 401
             
         return f(*args, **kwargs)
     
