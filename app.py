@@ -10,7 +10,7 @@ import requests
 import datetime
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+CORS(app, resources={r"/api/*": {"origins": "https://preview--dfnfj-13.lovable.app"}}, supports_credentials=True)
 
 # Environment variables
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
