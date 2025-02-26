@@ -13,7 +13,8 @@ import jwt
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+
+CORS(app, supports_credentials=True)
 
 # Environment variables
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
